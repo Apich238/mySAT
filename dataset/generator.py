@@ -179,7 +179,6 @@ def CNF_open_branches(f: CNForm):
 
 
 def CNFt_open_branches(f):
-
     def extend_liters(a, ls):
         nl = ls  # .copy()
 
@@ -317,17 +316,6 @@ def CNFtto3SAT(f):
     return res
 
 
-def make_graph_tree(f):
-    pass
-
-
-def make_graph_fc1(f):
-    pass
-
-
-def make_grapf_2partial(f):
-    pass
-
 
 # for _ in range(30):
 #     f=generateRandomFormula(nVars=5,nOps=20)
@@ -389,14 +377,111 @@ def run_test(nVars, samples=1000):
         'unsatisfiable': cc / (cc + co),
     }
 
-    #print(
+    # print(
     #    '{: >4d} variables (average {:.5f} s. per example): unsat:{:.2f}, sat:{:.2f}'.format(nV, dt, cc / (cc + co), ))
 
 
-for v in range(4, 10):
-    run_test(v, 100)  # int(2 ** (6 * 12 / v)))
+# for v in range(4, 10):
+#     run_test(v, 100)  # int(2 ** (6 * 12 / v)))
 
 for v in resdict:
     print('{}:'.format(v))
     for k in resdict[v]:
-        print('\t{}:\t{:.5f}'.format(k,resdict[v][k]))
+        print('\t{}:\t{:.5f}'.format(k, resdict[v][k]))
+
+class graph:
+    def __init__(self):
+        self.vertices=set()
+        self.edges=set()
+
+    def add_edge(self,a,b,w=1,two_way=True,w_inv=None):
+        self.vertices.add(a)
+        self.vertices.add(b)
+        self.edges.add((a,b,w))
+        if two_way:
+            if w_inv is None:
+                w_inv=w
+            self.edges.add((b,a,w_inv))
+
+    def print(self):
+        print(self.vertices)
+        for a,b,w in self.edges:
+            print('{} -> {} : {}'.format(a,b,w))
+
+    def getAdjMatrix(self):
+        lbls=list(self.vertices)
+        lbls.sort()
+        mx=np.zeros([len(lbls),len(lbls)],dtype=float)
+        for a,b,w in self.edges:
+            mx[lbls.index(a),lbls.index(b)]=w
+        return mx,lbls
+
+
+
+# g=graph()
+# g.add_edge('a','b')
+# g.print()
+# print('----------------')
+# g.add_edge('a','c')
+# g.print()
+# print('----------------')
+# g.add_edge('b','c')
+# g.print()
+# print('----------------')
+# g.add_edge('b','c')
+# g.print()
+# print('----------------')
+
+
+
+
+def make_graph_tree(f):
+    g=graph()
+
+    for i,c in enumerate(f):
+        dname1='d{}'.format(i)
+        g.add_edge('c0',dname1)
+        g.add_edge('c0','c')
+        for v in c:
+            if v<0:
+                vname1='p{}'.format(-v)
+                g.add_edge(vname1,'v{}'.format(-v))
+                vname2='n{}'.format(-v)
+                g.add_edge(vname1,vname2)
+                vname=vname2
+            else:
+                vname='v{}'.format(int(math.fabs(v)))
+            g.add_edge(dname1,vname)
+
+    return g
+
+
+def make_graph_fc1(f):
+    pass
+
+
+def make_grapf_2partial(f):
+    g=graph()
+    for i,c in enumerate(f):
+        for v in c:
+            g.add_edge('c{}'.format(i),'v{}'.format(int(math.fabs(v))),int(v/math.fabs(v)))
+    return g
+
+
+
+
+f=generateRandomCNFt(3)
+print(f)
+g2p=make_grapf_2partial(f)
+g2p.print()
+mx,lbls=g2p.getAdjMatrix()
+print(lbls)
+print(mx)
+
+gtree=make_graph_tree(f)
+gtree.print()
+mx,lbls=gtree.getAdjMatrix()
+print(lbls)
+print(mx)
+
+
