@@ -382,8 +382,8 @@ def run_test(nVars, samples=1000):
     #    '{: >4d} variables (average {:.5f} s. per example): unsat:{:.2f}, sat:{:.2f}'.format(nV, dt, cc / (cc + co), ))
 
 
-# for v in range(4, 10):
-#     run_test(v, 100)  # int(2 ** (6 * 12 / v)))
+for v in range(4, 10):
+    run_test(v, 50)  # int(2 ** (6 * 12 / v)))
 
 for v in resdict:
     print('{}:'.format(v))
@@ -434,7 +434,7 @@ def make_graph_fc1(f):
     pass
 
 
-def make_grapf_2partial(f):
+def make_graph_2partial(f):
     g=graph()
     for i,c in enumerate(f):
         for v in c:
@@ -446,7 +446,7 @@ def make_grapf_2partial(f):
 
 f=generateRandomCNFt(3)
 print(f)
-g2p=make_grapf_2partial(f)
+g2p=make_graph_2partial(f)
 g2p.print()
 mx,lbls=g2p.getAdjMatrix()
 print(lbls)
