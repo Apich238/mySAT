@@ -1,8 +1,10 @@
-import numpy as np
-from logic.prop import AtomForm, ImpForm, ConForm, DisForm, NegForm, CNForm
 import math
 from time import time
+
+import numpy as np
+
 from graph import graph
+from logic.prop import AtomForm, ImpForm, ConForm, DisForm, NegForm, CNForm
 
 
 class node:
@@ -317,7 +319,6 @@ def CNFtto3SAT(f):
     return res
 
 
-
 # for _ in range(30):
 #     f=generateRandomFormula(nVars=5,nOps=20)
 #     print(f)
@@ -382,16 +383,6 @@ def run_test(nVars, samples=1000):
     #    '{: >4d} variables (average {:.5f} s. per example): unsat:{:.2f}, sat:{:.2f}'.format(nV, dt, cc / (cc + co), ))
 
 
-for v in range(4, 10):
-    run_test(v, 50)  # int(2 ** (6 * 12 / v)))
-
-for v in resdict:
-    print('{}:'.format(v))
-    for k in resdict[v]:
-        print('\t{}:\t{:.5f}'.format(k, resdict[v][k]))
-
-
-
 # g=graph()
 # g.add_edge('a','b')
 # g.print()
@@ -407,25 +398,23 @@ for v in resdict:
 # print('----------------')
 
 
-
-
 def make_graph_tree(f):
-    g=graph()
+    g = graph()
 
-    for i,c in enumerate(f):
-        dname1='d{}'.format(i)
-        g.add_edge('c0',dname1)
-        g.add_edge('c0','c')
+    for i, c in enumerate(f):
+        dname1 = 'd{}'.format(i)
+        g.add_edge('g', dname1)
+        g.add_edge('g', 'c')
         for v in c:
-            if v<0:
-                vname1='p{}'.format(-v)
-                g.add_edge(vname1,'v{}'.format(-v))
-                vname2='n{}'.format(-v)
-                g.add_edge(vname1,vname2)
-                vname=vname2
+            if v < 0:
+                vname1 = 'p{}'.format(-v)
+                g.add_edge(vname1, 'v{}'.format(-v))
+                vname2 = 'n{}'.format(-v)
+                g.add_edge(vname1, vname2)
+                vname = vname2
             else:
-                vname='v{}'.format(int(math.fabs(v)))
-            g.add_edge(dname1,vname)
+                vname = 'v{}'.format(int(math.fabs(v)))
+            g.add_edge(dname1, vname)
 
     return g
 
@@ -435,27 +424,89 @@ def make_graph_fc1(f):
 
 
 def make_graph_2partial(f):
-    g=graph()
-    for i,c in enumerate(f):
+    g = graph()
+    for i, c in enumerate(f):
         for v in c:
-            g.add_edge('c{}'.format(i),'v{}'.format(int(math.fabs(v))),int(v/math.fabs(v)))
+            g.add_edge('c{}'.format(i), 'v{}'.format(int(math.fabs(v))), int(v / math.fabs(v)))
     return g
 
 
+def test():
+    for v in range(4, 10):
+        run_test(v, 50)  # int(2 ** (6 * 12 / v)))
+
+    for v in resdict:
+        print('{}:'.format(v))
+        for k in resdict[v]:
+            print('\t{}:\t{:.5f}'.format(k, resdict[v][k]))
+
+    f = generateRandomCNFt(3)
+    print(f)
+    g2p = make_graph_2partial(f)
+    g2p.print()
+    mx, lbls = g2p.getAdjMatrix()
+    print(lbls)
+    print(mx)
+
+    gtree = make_graph_tree(f)
+    gtree.print()
+    mx, lbls = gtree.getAdjMatrix()
+    print(lbls)
+    print(mx)
 
 
-f=generateRandomCNFt(3)
-print(f)
-g2p=make_graph_2partial(f)
-g2p.print()
-mx,lbls=g2p.getAdjMatrix()
-print(lbls)
-print(mx)
-
-gtree=make_graph_tree(f)
-gtree.print()
-mx,lbls=gtree.getAdjMatrix()
-print(lbls)
-print(mx)
+def SolveSAT(f):
+    min_f = minimize_CNFt(f)
+    if len(min_f) == 0:
+        return False
+    obranches = CNFt_open_branches(min_f)
+    return len(obranches) > 0
 
 
+def generate_dataset(nVars, count):
+    data = set()
+    while len(data) < count:
+        f = generateRandomCNFt(nVars)
+        f1 = tuple(sorted(f))
+        l = SolveSAT(f)
+        data.add((f1, l))
+        print(f'{f}:{l}')
+    data = list(data)
+    return data
+
+
+# generate_dataset(r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\test.txt', 4, 10)
+
+
+def save_dataset(data, save_pth):
+    with open(save_pth, 'w', encoding='utf-8') as f:
+        for d in data:
+            f.write(f'{d}\n')
+
+
+def read_dataset(load_pth):
+    from ast import literal_eval
+    data = []
+    labels = []
+    with open(load_pth, 'r', encoding='utf-8') as f:
+        ls = f.readlines()
+    for line in ls:
+        t, lb = literal_eval(line)
+        data.append(list(t))
+        labels.append(lb)
+    return data, labels
+
+
+dataset_size = 100000
+test_size = int(dataset_size * 0.5)
+nVars = 6
+
+# data = generate_dataset(nVars, dataset_size)
+# save_dataset(data[:test_size], r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\V6Test.txt')
+# save_dataset(data[test_size:], r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\V6Train.txt')
+# print('done')
+
+# d,l=read_dataset(r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\V6Train.txt')
+
+# data = generate_dataset(4, 100)
+# save_dataset(data, r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\test.txt')
