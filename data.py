@@ -1,7 +1,8 @@
-from generator import read_dataset, make_graph_2partial, make_graph_tree
+import random
+
 import numpy as np
 
-import random
+from generator import read_dataset, make_graph_2partial, make_graph_tree
 
 
 class dataset:
@@ -43,7 +44,7 @@ class dataset:
             an = ['c', 'g', 'd', 'n', 'p']
 
         if self.diff_var_annotations:
-            an.extend([f'v{i}' for i in range(self.var_limit)])
+            an.extend(['v{}'.format(i) for i in range(self.var_limit)])
         else:
             an.extend(['v'])
         return an
@@ -93,14 +94,15 @@ class dataset:
 
     def BatchGen(self, batchSize):
         for k in self.cdata:
-            #print(f'size: {k}')
+            #print(f'size: {k: >3d}    ', end='')
             subset = self.cdata[k].copy()
             random.shuffle(subset)
             for a in range(0, len(subset), batchSize):
                 b = min(a + batchSize, len(subset))
                 samples = np.arange(a, b)
 
-                blabels = self.labels[samples].astype(int)
+                blabels = self.labels[subset[a:b]].astype(int)
+                #print(f'mean: {np.mean(blabels.data.tolist()):.8f}    ', end='')
                 nodes = []
                 adjs = []
                 for i in samples:

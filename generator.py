@@ -465,12 +465,27 @@ def SolveSAT(f):
 
 def generate_dataset(nVars, count):
     data = set()
+    c0 = 0
+    c1 = 0
     while len(data) < count:
         f = generateRandomCNFt(nVars)
         f1 = tuple(sorted(f))
+        if len(f1) == 0:
+            continue
         l = SolveSAT(f)
-        data.add((f1, l))
-        print(f'{f}:{l}')
+        sz0 = len(data)
+        if l and c1 * 2 < count:
+            data.add((f1, l))
+            sz1 = len(data)
+            # print(f'{f}:{l}')
+            c1 += 1 if sz0 < sz1 else 0
+        elif not l and c0 * 2 < count:
+            data.add((f1, l))
+            sz1 = len(data)
+            # print(f'{f}:{l}')
+            c0 += 1 if sz0 < sz1 else 0
+        else:
+            print('.', end='')
     data = list(data)
     return data
 
@@ -481,7 +496,7 @@ def generate_dataset(nVars, count):
 def save_dataset(data, save_pth):
     with open(save_pth, 'w', encoding='utf-8') as f:
         for d in data:
-            f.write(f'{d}\n')
+            f.write('{}\n'.format(d))
 
 
 def read_dataset(load_pth):
@@ -497,16 +512,35 @@ def read_dataset(load_pth):
     return data, labels
 
 
-dataset_size = 100000
-test_size = int(dataset_size * 0.5)
-nVars = 6
+def split(data, test_sz):
+    t0 = []
+    t1 = []
+    tr = []
+    for f, l in data:
+        if not l and len(t0) * 2 < test_sz:
+            t0.append((f, 0))
+        elif l and len(t1) * 2 < test_sz:
+            t1.append((f, 1))
+        else:
+            tr.append((f, 1 if l else 0))
+    return tr, t0 + t1
 
-# data = generate_dataset(nVars, dataset_size)
-# save_dataset(data[:test_size], r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\V6Test.txt')
-# save_dataset(data[test_size:], r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\V6Train.txt')
-# print('done')
+
+def gen_dataset_files(nVars, trainSZ, testSZ, svdir):
+    import os
+    data = generate_dataset(nVars, trainSZ + testSZ)
+    trdata, tsdata = split(data, testSZ)
+    save_dataset(trdata, os.path.join(svdir, 'V{}Train.txt'.format(nVars)))
+    save_dataset(tsdata, os.path.join(svdir, 'V{}Test.txt'.format(nVars)))
+    print('done')
+
+
+if __name__ == '__main__':
+    train_size = 90000
+    test_size = 10000
+    nVars = 5
+    fld = r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data'
+
+    gen_dataset_files(nVars, train_size, test_size, fld)
 
 # d,l=read_dataset(r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\V6Train.txt')
-
-# data = generate_dataset(4, 100)
-# save_dataset(data, r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\test.txt')

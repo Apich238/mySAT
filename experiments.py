@@ -1,22 +1,53 @@
 import os
+from datetime import datetime
+
+import torch
+from torch.utils.tensorboard import SummaryWriter
+
 from data import dataset
 from nnet.network import make_net
 
-graph_types = ['tree', '2p']
+if torch.cuda.is_available():
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "{},".format(1)
+
+locdeb = False
+
+graph_types = [ '2p','tree']
 var_annot_lim = [1, 9]
 read_out = ['GGNN']  # ['GGNN', 'IN', 'DTNN', 'My']
 architectures = ['test']  # ['ConvNet', 'RecNet', 'ResConvNet', 'resRecNet']
 
-data_path = r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data'
+if not locdeb:
+    data_path = '/home/alex/sat/data'  # r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data'
+else:
+    data_path = r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data'  # r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data'
 
-train_data_f = os.path.join(data_path, 'test.txt')
-test_data_f = os.path.join(data_path, 'test.txt')
-test_more_data_f = os.path.join(data_path, 'v9Test.txt')
+#data_path = '/home/alex/sat/data'  # r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data'
 
-train_epochs = 100
+nVars = 5
+
+train_data_f = os.path.join(data_path, 'V{}Train.txt'.format(nVars))
+test_data_f = os.path.join(data_path, 'V{}Test.txt'.format(nVars))
+
+train_epochs = 1
+
+if not locdeb:
+    train_epochs = 15
+else:
+    train_epochs = 5
+
 batch_size = 64
-logs_dir = '/home/alex/gsatnn'
-print_rate = 10
+
+if not locdeb:
+    logs_dir = '/home/alex/sat/logs'
+else:
+    logs_dir = r'C:\ml_logs'
+
+dtime = str(datetime.now())[:19].replace(':', '-')
+print_rate = 20
+
+lr=0.01
 
 for var_lim in var_annot_lim:
     for gt in graph_types:
@@ -28,12 +59,23 @@ for var_lim in var_annot_lim:
         all_nodes = train_data.all_nodes.copy()
         for ro in read_out:
             for arch in architectures:
-                print(f'architecture: {arch}, read out: {ro}, variables similar: {var_lim == 1}, graph type: {gt}')
-                net = make_net(arch, ro, gt, all_nodes, logs_dir)
+                # s = f'architecture {arch}, read out {ro}, variables similar {var_lim == 1}, graph type {gt}'
+                s = '{}-ar_{},rOut_{},simVs_{},gt_{}'.format(dtime, arch, ro, var_lim == 1, gt)
+                print(s)
+                if not os.path.exists(os.path.join(logs_dir, s, 'train')):
+                    os.makedirs(os.path.join(logs_dir, s, 'train'))
+                trw = SummaryWriter(os.path.join(logs_dir, s, 'train'))
+
+                if not os.path.exists(os.path.join(logs_dir, s, 'test')):
+                    os.makedirs(os.path.join(logs_dir, s, 'test'))
+                tsw = SummaryWriter(os.path.join(logs_dir, s, 'test'))
+
+                net = make_net(arch, ro, gt, all_nodes, trw, tsw,lr)
                 i = 0
+                net.test(test_data, batch_size)
                 for ep in range(train_epochs):
+                    print('epoch {}'.format(ep))
                     for nodes, adjs, labels in train_data.BatchGen(batch_size):
                         net.train_step(nodes, adjs, labels, (i % print_rate) == 0)
-                        i+=1
-                    #net.test(test_data)
-        #        net.test(test_more_data)
+                        i += 1
+                    net.test(test_data, batch_size)

@@ -60,7 +60,110 @@ class ConvSeq(Module):
         return ht
 
 
+class test_net(Module):
+    def __init__(self, all_nodes, node_features=16):
+        super().__init__()
+        self.emb = embedding(all_nodes, node_features)
+        self.bodyNotRec = ConvSeq(16, 16, 16, 12)
+        self.bodyRec = None
+        self.ro = readout_GGNN(16, 16, 16, 16, True)
+        self.robn = torch.nn.BatchNorm1d(node_features)
+        self.cl = torch.nn.Linear(node_features, 1, bias=False)
+
+    def forward(self, nodes, adjs, rec_times=0):
+        h0 = nodes
+        h0 = self.emb(h0)
+        ht = h0
+        if self.bodyNotRec is not None:
+            ht = self.bodyNotRec(ht, adjs=adjs)
+        if self.bodyRec is not None:
+            for i in range(rec_times):
+                ht = self.bodyRec(X=ht, AdjsMxNorm=adjs)
+        r = self.ro(ht, h0)
+        if r.shape[0] > 1:
+            r = self.robn(r)
+        r = self.cl(r)[:, 0]
+        return r
+
+
 class a_classifier(Module):
+    def __init__(self, readout, all_nodes, node_features=16, bodyNotRec=None, bodyRec=None):
+        super().__init__()
+        self.emb = embedding(all_nodes, node_features)
+        self.bodyNotRec = bodyNotRec
+        self.bodyRec = bodyRec
+        self.ro = readout
+        self.robn = torch.nn.BatchNorm1d(node_features)
+        self.cl = torch.nn.Linear(node_features, 1, bias=False)
+
+    def forward(self, nodes, adjs, rec_times=0):
+        h0 = nodes
+        h0 = self.emb(h0)
+        ht = h0
+        if self.bodyNotRec is not None:
+            ht = self.bodyNotRec(ht, adjs=adjs)
+        if self.bodyRec is not None:
+            for i in range(rec_times):
+                ht = self.bodyRec(X=ht, AdjsMxNorm=adjs)
+        r = self.ro(ht, h0)
+        if r.shape[0] > 1:
+            r = self.robn(r)
+        r = self.cl(r)[:, 0]
+        return r
+
+
+class a1_classifier(Module):
+    def __init__(self, readout, all_nodes, node_features=16, bodyNotRec=None, bodyRec=None):
+        super().__init__()
+        self.emb = embedding(all_nodes, node_features)
+        self.bodyNotRec = bodyNotRec
+        self.bodyRec = bodyRec
+        self.ro = readout
+        self.robn = torch.nn.BatchNorm1d(node_features)
+        self.cl = torch.nn.Linear(node_features, 1, bias=False)
+
+    def forward(self, nodes, adjs, rec_times=0):
+        h0 = nodes
+        h0 = self.emb(h0)
+        ht = h0
+        if self.bodyNotRec is not None:
+            ht = self.bodyNotRec(ht, adjs=adjs)
+        if self.bodyRec is not None:
+            for i in range(rec_times):
+                ht = self.bodyRec(X=ht, AdjsMxNorm=adjs)
+        r = self.ro(ht, h0)
+        if r.shape[0] > 1:
+            r = self.robn(r)
+        r = self.cl(r)[:, 0]
+        return r
+
+
+class a2_classifier(Module):
+    def __init__(self, readout, all_nodes, node_features=16, bodyNotRec=None, bodyRec=None):
+        super().__init__()
+        self.emb = embedding(all_nodes, node_features)
+        self.bodyNotRec = bodyNotRec
+        self.bodyRec = bodyRec
+        self.ro = readout
+        self.robn = torch.nn.BatchNorm1d(node_features)
+        self.cl = torch.nn.Linear(node_features, 1, bias=False)
+
+    def forward(self, nodes, adjs, rec_times=0):
+        h0 = nodes
+        h0 = self.emb(h0)
+        ht = h0
+        if self.bodyNotRec is not None:
+            ht = self.bodyNotRec(ht, adjs=adjs)
+        if self.bodyRec is not None:
+            for i in range(rec_times):
+                ht = self.bodyRec(X=ht, AdjsMxNorm=adjs)
+        r = self.ro(ht, h0)
+        if r.shape[0] > 1:
+            r = self.robn(r)
+        r = self.cl(r)[:, 0]
+        return r
+
+class a4_classifier(Module):
     def __init__(self, readout, all_nodes, node_features=16, bodyNotRec=None, bodyRec=None):
         super().__init__()
         self.emb = embedding(all_nodes, node_features)
