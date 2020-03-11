@@ -7,7 +7,6 @@ from nnet.models import *
 '''
 класс для простого использования сети
 '''
-T = 10
 
 
 class network:
@@ -25,8 +24,7 @@ class network:
         #     self.model.bodyRec = self.model.bodyRec.to(self.dev)
 
         self.criteria = torch.nn.BCELoss().to(self.dev)
-        # self.opt = torch.optim.SGD(self.model.parameters(True), lr=lr, weight_decay=w_decay)
-        self.opt = torch.optim.Adam(self.model.parameters(True), lr=lr, weight_decay=w_decay)
+        self.opt = torch.optim.SGD(self.model.parameters(True), lr=lr, weight_decay=w_decay)
         self.global_step = 0
         self.testWriter = tsw
         self.trainWriter = trw
@@ -65,7 +63,7 @@ class network:
             if not isinstance(adjs, torch.Tensor):
                 adjs = torch.Tensor(adjs).to(self.dev)
 
-            out = torch.sigmoid(self.model(adjs, T))
+            out = torch.sigmoid(self.model(adjs, 10))
             if torch.min(labels) < 0. or torch.max(labels) > 1. or torch.min(out) < 0. or torch.max(out) > 1.:
                 print(torch.min(labels), torch.max(labels), torch.min(out), torch.max(out))
             loss += np.sum(np.asarray(self.criteria(out, labels).to('cpu').data)) * labels.size()[0]

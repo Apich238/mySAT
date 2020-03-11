@@ -166,6 +166,8 @@ class BiPartialTestBlock(Module):
         self.Cu = batchMLP(Cdim * 2, Hdim, Cdim, Dpth, False)
         self.Lu = batchMLP(Ldim * 3, Hdim, Ldim, Dpth, False)
 
+        # Fdata = np.eye(10)[[1, 0, 3, 2, 5, 4, 7, 6, 9, 8]]
+        # self.F = torch.tensor(Fdata, requires_grad=False)
 
     def forward(self, Ls, Cs, Ms):
         MsT = Ms.permute((0, 2, 1))
@@ -174,7 +176,7 @@ class BiPartialTestBlock(Module):
 
         FL = Ls[:, np.arange(Ls.size()[1]).reshape((-1, 2))[:, ::-1].reshape(-1)]
 
-        MCmsg = torch.matmul(Ms, self.Cmsg(cu))
+        MCmsg = torch.matmul(Ms, self.Cmsg(Cs))
         lu = Ls + F.tanh(self.Lu(torch.cat([Ls, FL, MCmsg], 2)))
         return lu, cu
 
@@ -187,7 +189,7 @@ class test_nsat(Module):
         self.Linit = torch.nn.Parameter(torch.FloatTensor(dim))
         torch.nn.init.normal_(self.Linit)
 
-        self.block = BiPartialTestBlock(dim, dim, 2 * dim, 2)
+        self.block = BiPartialTestBlock(dim, dim, 2 * dim, 1)
         self.Lvote = batchMLP(dim, 2 * dim, 1, 2, False)  # True)
 
     def forward(self, Ms, T=10):

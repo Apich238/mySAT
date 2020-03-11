@@ -187,7 +187,7 @@ class test_nsat(Module):
         self.Linit = torch.nn.Parameter(torch.FloatTensor(dim))
         torch.nn.init.normal_(self.Linit)
 
-        self.block = BiPartialTestBlock(dim, dim, 2 * dim, 2)
+        self.block = BiPartialTestBlock(dim, dim, 2 * dim, 1)
         self.Lvote = batchMLP(dim, 2 * dim, 1, 2, False)  # True)
 
     def forward(self, Ms, T=10):

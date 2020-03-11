@@ -68,7 +68,7 @@
 
 print()
 
-from nnet import network
+from net1.nnet import network
 
 from net1.data import dataset
 

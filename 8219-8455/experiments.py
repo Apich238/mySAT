@@ -11,7 +11,7 @@ if torch.cuda.is_available():
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "{},".format(0)
 
-locdeb = True
+locdeb = False
 
 # graph_types = [ '2p','tree']
 # var_annot_lim = [1, 9]
@@ -31,7 +31,7 @@ test_data_f = os.path.join(data_path, 'V{}Test.txt'.format(nVars))
 train_epochs = 1
 
 if not locdeb:
-    train_epochs = 15
+    train_epochs = 8
 else:
     train_epochs = 15
 
@@ -49,7 +49,7 @@ w_decay = 0.00001
 ldim = 32
 
 s = '{},wd={},lr={}_c={}'.format(dtime, w_decay, lr,
-                                 "with-rec-tanh,no-mistake,adam_opt,inner_depth_2")
+                                 "with-rec-tanh,no-mistake,")
 print(s)
 
 print('loading train data')

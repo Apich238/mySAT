@@ -536,8 +536,8 @@ def gen_dataset_files(nVars, trainSZ, testSZ, svdir):
 
 
 if __name__ == '__main__':
-    train_size = 90000
-    test_size = 10000
+    train_size = 900
+    test_size = 100
     nVars = 5
     fld = r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\dev'
 

@@ -1,8 +1,7 @@
-import numpy as np
-import torch
-import torch.nn.functional as F
 from torch.nn.modules import Module
 from torch.nn.parameter import Parameter
+import torch
+import torch.nn.functional as F
 
 '''
 если в качестве биаса задать None, он не добавляется. Если True, создаётся новый. Если передать тензор, он используется как параметры
@@ -156,18 +155,11 @@ class embedding(Module):
         return res
 
 
-'''
-свёртки с двудольной матрицей
-'''
-
-
-
-# region readouts
 # инфа про readout
+
+
 # https://arxiv.org/pdf/1704.01212.pdf (4)
 # https://arxiv.org/pdf/1511.05493.pdf (7)
-
-
 class readout_GGNN(Module):
     def __init__(self, inDimt, inDim0, outDim, latentDim, j_tanh=True):
         super().__init__()
@@ -227,14 +219,13 @@ class readout_GGNN(Module):
             c = torch.matmul(a, self.w3) + self.b3
             return c
 
-    # Battaglia, Peter, Pascanu, Razvan, Lai, Matthew, Rezende,
-    # Danilo Jimenez, and Kavukcuoglu, Koray. Interaction networks
-    # for learning about objects, relations and
-    # physics. In Advances in Neural Information Processing
-    # Systems, pp. 4502–4510, 2016.
-    # https://arxiv.org/pdf/1612.00222.pdf
 
-
+# Battaglia, Peter, Pascanu, Razvan, Lai, Matthew, Rezende,
+# Danilo Jimenez, and Kavukcuoglu, Koray. Interaction networks
+# for learning about objects, relations and
+# physics. In Advances in Neural Information Processing
+# Systems, pp. 4502–4510, 2016.
+# https://arxiv.org/pdf/1612.00222.pdf
 class readout_IN(Module):
     def __init__(self, inDimt, latentDim, outDim):
         super().__init__()
@@ -253,8 +244,8 @@ class readout_IN(Module):
         x = torch.matmul(x, self.w2) + self.b2
         return x
 
-    # Convolutional Networks for Learning Molecular Fingerprints, Duvenaud et al. (2015)
 
+# Convolutional Networks for Learning Molecular Fingerprints, Duvenaud et al. (2015)
 
 class readout3(Module):
     def __init__(self):
@@ -263,10 +254,9 @@ class readout3(Module):
     def forward(self):
         pass
 
-    # Deep Tensor Neural Networks, Schutt et al. ¨ (2017)
-    # https://arxiv.org/pdf/1609.08259.pdf
 
-
+# Deep Tensor Neural Networks, Schutt et al. ¨ (2017)
+# https://arxiv.org/pdf/1609.08259.pdf
 class readout_DTNN(Module):
     def __init__(self, inDimt, latentDim, outDim):
         super().__init__()
@@ -285,11 +275,10 @@ class readout_DTNN(Module):
         s = torch.sum(x, dim=1)
         return s
 
-    # Schutt, Kristof T, Arbabzadah, Farhad, Chmiela, Stefan, ¨
-    # Muller, Klaus R, and Tkatchenko, Alexandre. Quantum- ¨
-    # chemical insights from deep tensor neural networks. Nature Communications, 8, 2017.
 
-
+# Schutt, Kristof T, Arbabzadah, Farhad, Chmiela, Stefan, ¨
+# Muller, Klaus R, and Tkatchenko, Alexandre. Quantum- ¨
+# chemical insights from deep tensor neural networks. Nature Communications, 8, 2017.
 class readout3(Module):
     def __init__(self):
         pass
@@ -297,21 +286,19 @@ class readout3(Module):
     def forward(self):
         pass
 
-    # The set2set model is specifically designed to operate on sets
-    # and should have more expressive power than simply summing the
-    # final node states. This model first applies a linear
-    # projection to each tuple (hTv, xv) and then takes as input
-    # the set of projected tuples T = {(hTv, xv)}. Then, after M
-    # steps of computation, the set2set model produces a graph
-    # level embedding q∗t which is invariant to the order of the of
-    # the tuples T. We feed this embedding q∗t through a neural
-    # network to produce the output.
 
-
+# The set2set model is specifically designed to operate on sets
+# and should have more expressive power than simply summing the
+# final node states. This model first applies a linear
+# projection to each tuple (hTv, xv) and then takes as input
+# the set of projected tuples T = {(hTv, xv)}. Then, after M
+# steps of computation, the set2set model produces a graph
+# level embedding q∗t which is invariant to the order of the of
+# the tuples T. We feed this embedding q∗t through a neural
+# network to produce the output.
 class readout4(Module):
     def __init__(self):
         pass
 
     def forward(self):
         pass
-# endregion
