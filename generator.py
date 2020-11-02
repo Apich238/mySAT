@@ -1,10 +1,12 @@
 import math
 from time import time
+import random
+from joblib import Parallel, delayed
 
 import numpy as np
 
 from logic.prop import AtomForm, ImpForm, ConForm, DisForm, NegForm, CNForm
-from net1.graph import graph
+from graph import graph
 
 
 class node:
@@ -112,15 +114,20 @@ def generateRandomFormula(nVars, nOps=None):
     return f
 
 
-def generateRandomCNFt(nVars):
-    min_disjuncts = 1
-    max_disjuncts = 2 ** nVars
-    num = int(round(np.random.uniform(min_disjuncts, max_disjuncts)))
+def generateRandomCNFt(nVars, clause_max=-1, clause_min=1, exact_clauses=None):
+    if exact_clauses is not None:
+        num = exact_clauses
+    else:
+        min_disjuncts = clause_min
+        max_disjuncts = 2 ** nVars
+        if clause_max > 0:
+            max_disjuncts = min(clause_max, max_disjuncts)
+        num = int(round(np.random.uniform(min_disjuncts, max_disjuncts)))
     s = set()
     for _ in range(num):
         l = []
         for i in range(1, 1 + nVars):
-            c = np.random.choice((0, 1, 2))
+            c = np.random.choice((0, 0, 0, 1, 2))
             if c == 1:
                 l.append(i)
             elif c == 2:
@@ -463,29 +470,107 @@ def SolveSAT(f):
     return len(obranches) > 0
 
 
-def generate_dataset(nVars, count):
+def effective_Vars(f):
+    return len(set([abs(a) for a in sum([list(x) for x in f], [])]))
+
+
+import networkx as nx
+from networkx.algorithms import bipartite
+
+
+def cnf2graph(f):
+    g = nx.Graph()
+    vs = set()
+    cs = set()
+    for i, cl in enumerate(f):
+        c = 'C{}'.format(i)
+        g.add_node(c, bipartite=1)
+        cs.add(c)
+        for j, vr in enumerate(cl):
+            v = 'V{}'.format(abs(vr))
+            vs.add(v)
+            g.add_node(v, bipartite=0)
+            g.add_edge(v, c, weight=1 if vr > 0 else -1)
+    return g, vs, cs
+
+
+def normalizeCNF(f):
+    # print(f)
+    g, vs, cs = cnf2graph(f)
+    # разделяем по компонентам связности, сортируем их по убыванию количества вершин
+    components = list(nx.connected_components(g))
+    components = sorted(components, key=len, reverse=True)
+    subgraphs = [g.subgraph(nds) for nds in components]
+
+    # количество соседей каждой вершины
+    neighboursV = {k: len(list(nx.neighbors(g, k))) for k in g.nodes() if k in vs}
+    neighboursC = {k: len(list(nx.neighbors(g, k))) for k in g.nodes() if k in cs}
+
+    # def make_key(sg):
+    #     ndsV = tuple(sorted([neighboursV[nd] for nd in sg.nodes if nd in neighboursV]))
+    #     ndsC = tuple(sorted([neighboursC[nd] for nd in sg.nodes if nd in neighboursC]))
+    #     return (ndsC, ndsV)
+    #
+    # k = sorted([make_key(sg) for sg in subgraphs])
+
+    new_f = []
+    new_vars = []
+    new_clauses = []
+    for sg in subgraphs:
+        locvs = sorted([n for n in sg.nodes if n in vs], key=lambda n: neighboursV[n])
+        loccs = sorted([n for n in sg.nodes if n in cs], key=lambda n: neighboursC[n])
+        new_vars.extend(locvs)
+        new_clauses.extend(loccs)
+    new_clauses = [int(c[1:]) for i, c in enumerate(new_clauses)]
+    new_vars = [int(v[1:]) for i, v in enumerate(new_vars)]
+
+    for i, old_cl in enumerate(new_clauses):
+        ocl = f[old_cl]
+        new_cl = []
+        for v in ocl:
+            nv = new_vars.index(abs(v)) + 1
+            if v < 0:
+                nv *= -1
+            new_cl.append(nv)
+        new_cl = tuple(sorted(new_cl, key=abs))
+        new_f.append(new_cl)
+    if not (nx.algorithms.isomorphism.is_isomorphic(g, cnf2graph(new_f)[0])):
+        raise Exception('graps before and after is not isomorphic')
+    return tuple(new_f)  # tuple(sorted(f))
+
+
+def generate_dataset(nVars, count, max_clauses=-1, min_clauses=1):
     data = set()
     c0 = 0
     c1 = 0
     while len(data) < count:
-        f = generateRandomCNFt(nVars)
-        f1 = tuple(sorted(f))
-        if len(f1) == 0:
-            continue
+        if isinstance(nVars, int):
+            nV = nVars
+        else:
+            nV = random.choice(nVars)
+        eff_v = 0
+        while eff_v != nV:
+            f = generateRandomCNFt(nV, max_clauses, min_clauses)
+            eff_v = effective_Vars(f)
+            print('nV={},effV={},clauses={}'.format(nV, eff_v, len(f)))
+        f1 = normalizeCNF(f)
+        # print('f1={}'.format(f1))
         l = SolveSAT(f)
+        print('sat: {};'.format(l), end='')
         sz0 = len(data)
         if l and c1 * 2 < count:
             data.add((f1, l))
             sz1 = len(data)
-            # print(f'{f}:{l}')
             c1 += 1 if sz0 < sz1 else 0
+            print('  added;', end='')
         elif not l and c0 * 2 < count:
             data.add((f1, l))
             sz1 = len(data)
-            # print(f'{f}:{l}')
             c0 += 1 if sz0 < sz1 else 0
+            print(' added;', end='')
         else:
-            print('.', end='')
+            print(' not added;', end='')
+        print('     sat:{: >8}, unsat:{: >8}'.format(c1, c0))
     data = list(data)
     return data
 
@@ -526,21 +611,30 @@ def split(data, test_sz):
     return tr, t0 + t1
 
 
-def gen_dataset_files(nVars, trainSZ, testSZ, svdir):
+def gen_dataset_files(nVarsT, trainSZ, testSZ, nVarsV, valSZ, svdir, max_clauses=-1):
     import os
-    data = generate_dataset(nVars, trainSZ + testSZ)
+    data = generate_dataset(nVarsT, trainSZ + testSZ, max_clauses, min_clauses=3)
     trdata, tsdata = split(data, testSZ)
-    save_dataset(trdata, os.path.join(svdir, 'V{}Train.txt'.format(nVars)))
-    save_dataset(tsdata, os.path.join(svdir, 'V{}Test.txt'.format(nVars)))
+    valdata = generate_dataset(nVarsV, valSZ, max_clauses, min_clauses=3)
+    st = str(nVarsT) if isinstance(nVarsT, int) else '({}-{})'.format(min(nVarsT), max(nVarsT))
+    stv = str(nVarsV) if isinstance(nVarsV, int) else '({}-{})'.format(min(nVarsV), max(nVarsV))
+    if not os.path.exists(svdir):
+        os.makedirs(svdir)
+    save_dataset(trdata, os.path.join(svdir, 'V{}Train.txt'.format(st)))
+    save_dataset(tsdata, os.path.join(svdir, 'V{}Test.txt'.format(st)))
+    save_dataset(valdata, os.path.join(svdir, 'V{}Valid.txt'.format(stv)))
     print('done')
 
 
 if __name__ == '__main__':
     train_size = 90000
     test_size = 10000
-    nVars = 5
-    fld = r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\dev'
+    val_size = 10000
+    nVarsT = range(3, 8)
+    nVarsV = range(10, 12)
+    max_clauses = 200
+    fld = r'C:\Users\Alex\Dropbox\институт\диссертация\статья нейросеть выводимость\data35'
 
-    gen_dataset_files(nVars, train_size, test_size, fld)
+    gen_dataset_files(nVarsT, train_size, test_size, nVarsV, val_size, fld, max_clauses)
 
 # d,l=read_dataset(r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\V6Train.txt')

@@ -6,9 +6,13 @@ from generator import read_dataset
 
 
 class dataset:
-    def __init__(self, data_file, nVars):
+    def __init__(self, data_file, nVars, use_only_sat=False):
+        self.use_only_sat = use_only_sat
         self.nVars = nVars
         self.data, self.labels = read_dataset(data_file)
+        if self.use_only_sat:
+            self.data = [self.data[i] for i, l in enumerate(self.labels) if l > 0]
+            self.labels = [self.labels[i] for i, l in enumerate(self.labels) if l > 0]
         var_limit = 1
         self.cdata = {}
         for i, d in enumerate(self.data):
@@ -20,28 +24,7 @@ class dataset:
             else:
                 self.cdata[graph_sz] = [i]
         self.batches_schedule = None
-
-        # self.var_limit = var_limit
-        # if graph_format == 'tree':
-        #     self.mx_generator = make_graph_tree
-        # else:
-        # self.mx_generator = make_graph_2partial
         self.labels = np.asarray(self.labels)
-        # self.diff_var_annotations = var_limit > 1
-        # self.all_nodes = sorted(self.detect_all_nodes())
-
-    # def detect_all_nodes(self):
-    #     an = []
-    #     if self.mx_generator is make_graph_2partial:
-    #         an = ['c']
-    #     else:
-    #         an = ['c', 'g', 'd', 'n', 'p']
-    #
-    #     # if self.diff_var_annotations:
-    #     #     an.extend(['v{}'.format(i) for i in range(self.var_limit)])
-    #     # else:
-    #     #     an.extend(['v'])
-    #     return an
 
     @staticmethod
     def normalize_adj_matrix_by_Kipf(a):
@@ -62,7 +45,6 @@ class dataset:
     def get_matrix(self, f):
 
         mx = np.zeros(shape=[2 * self.nVars, len(f)])
-        # print(mx.shape)
         for i, c in enumerate(f):
             for j in c:
                 k = (-2 * j - 1) if j < 0 else (2 * j - 2)
@@ -89,7 +71,9 @@ class dataset:
 
         return adjs, blabels
 
-    def UpdBatchesSchedule(self, batchSize):
+    def UpdBatchesSchedule(self, batchSize, seed=None):
+        if seed is not None:
+            random.seed(seed)
         self.batches_schedule = []
         for k in self.cdata:
             subset = self.cdata[k].copy()
@@ -102,39 +86,11 @@ class dataset:
 
     def BatchGen(self, batchSize):
         self.UpdBatchesSchedule(batchSize)
-
         for bids in self.batches_schedule:
             blabels = self.labels[bids].astype(int)
-            adjs = []
             adjs = [self.get_matrix(self.data[i]) for i in bids]
-            # for i in bids:
-            #     a = self.get_matrix(self.data[i])
-            #     adjs.append(a)
-
             adjs = np.asarray(adjs)
-
             yield adjs, blabels
-
-        # for k in self.cdata:
-        #     # print(f'size: {k: >3d}    ', end='')
-        #     subset = self.cdata[k].copy()
-        #     random.shuffle(subset)
-        #     for a in range(0, len(subset), batchSize):
-        #         b = min(a + batchSize, len(subset))
-        #         samples = np.arange(a, b)
-        #
-        #         blabels = self.labels[subset[a:b]].astype(int)
-        #         # print(f'mean: {np.mean(blabels.data.tolist()):.8f}    ', end='')
-        #         nodes = []
-        #         adjs = []
-        #         for i in samples:
-        #             a = self.get_matrix(self.data[subset[i]])
-        #             adjs.append(a)
-        #
-        #         # print([x.shape for x in adjs])
-        #         adjs = np.asarray(adjs)
-        #
-        #         yield adjs, blabels
 
 
 if __name__ == '__main__':
