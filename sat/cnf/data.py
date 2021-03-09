@@ -2,7 +2,21 @@ import random
 
 import numpy as np
 
-from generator import read_dataset
+
+# from generator import read_dataset
+
+
+def read_dataset(load_pth):
+    from ast import literal_eval
+    data = []
+    labels = []
+    with open(load_pth, 'r', encoding='utf-8') as f:
+        ls = f.readlines()
+    for line in ls:
+        t, lb = literal_eval(line)
+        data.append(list(t))
+        labels.append(lb)
+    return data, labels
 
 
 class dataset:
@@ -94,7 +108,7 @@ class dataset:
 
 
 if __name__ == '__main__':
-    ds = dataset(r'C:\Users\Alex\Dropbox\институт\диссертация\конфа 2020\data\test.txt', '2d', 1)
+    ds = dataset(r'C:\Users\Alex\Dropbox\диссертация\конфа 2020\data\test.txt', '2d', 1)
     print('a')
     for _ in range(100):
         n, a, l = ds.get_batch(5)

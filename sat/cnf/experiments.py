@@ -6,14 +6,14 @@ import random
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from data import dataset
-import nnet
+from sat.cnf.data import dataset
+from sat.cnf import nnet
 
 if torch.cuda.is_available():
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "{},".format(0)
 
-locdeb = False
+locdeb = True
 
 
 def run_experiment(seed, print_rate, train_epochs, train_vars, test_vars, val_vars,
@@ -158,7 +158,7 @@ def main():
 
     if locdeb:
         train_epochs = 2
-        data_path = r'C:\Users\Alex\Dropbox\институт\диссертация\статья нейросеть выводимость\data3'
+        data_path = r'path to data'
         logs_dir = r'C:\ml_logs'
         save_dir = r'C:\ml_saves'
         test_rnn_steps = [5, 10]
