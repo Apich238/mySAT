@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 import itertools
 
-from joblib import delayed,Parallel
+from joblib import delayed, Parallel
 
 from torch.utils.data import DataLoader
 import torch
@@ -12,6 +12,14 @@ from torch.utils.tensorboard import SummaryWriter
 
 from dataset import TreeFormulasDataset
 from nnet import SimpleTreeSAT
+
+import matplotlib.pyplot as plt
+import matplotlib.colors
+from io import BytesIO
+import cv2
+from PIL import Image
+
+matplotlib.use('agg')
 
 
 def run_experiment(train_dataset, test_dataset, validation_dataset, batch_sz, p, epochs, rnn_steps, dim, cl_type, opt,
@@ -54,13 +62,14 @@ def run_experiment(train_dataset, test_dataset, validation_dataset, batch_sz, p,
 
     def train():
         nonlocal global_step
+        a = 0
         net.train()
         for i, batch in enumerate(train_loader):
             opt.zero_grad()
-            res = net(mxs=batch['matrix'].to(device),
-                      cons=batch['conops'].to(device),
-                      negs=batch['negops'].to(device),
-                      rnn_steps=rnn_steps)
+            res, _ = net(mxs=batch['matrix'].to(device),
+                         cons=batch['conops'].to(device),
+                         negs=batch['negops'].to(device),
+                         rnn_steps=rnn_steps)
             loss = lossf(res, batch['label'].to(dtype=torch.float32, device=device))
 
             r = res.cpu() > 0.5
@@ -84,24 +93,101 @@ def run_experiment(train_dataset, test_dataset, validation_dataset, batch_sz, p,
             logger.add_scalar('train/loss', (l), global_step)
 
             global_step += 1
-            if i % 20 == 0 and i > 0:
+            if i % 10 == 0 and i > 0:
                 print('step', i, ':', 'acc', (tp + tn) / len(lbl), 'fp', fp / len(lbl), 'fn', fn / len(lbl), 'loss', l)
+
+    def plot_dynamics(formulas, assignments, predicted_lbl, labels):
+        imgs = [None] * len(formulas)
+
+        plt.interactive(False)
+        for r, fl in enumerate(formulas):
+
+            # plt.gcf().clear()
+            fig, ax = plt.subplots()
+            a = assignments[r]
+            pred = predicted_lbl[r]
+            lab = labels[r]
+
+            a = a.transpose()
+            x_labels = ["t={}".format(t) for t in range(0, a.shape[1])]
+            y_labels = ["x{}".format(t) for t in range(1, a.shape[0] + 1)] + ['', 'yp']
+
+            cells = np.concatenate([a, [[0] * len(pred)], [pred]], 0)
+
+            im = ax.imshow(cells, cmap=plt.get_cmap("gray"), aspect=0.5, vmin=0., vmax=1., )
+            fig.set_figwidth(10)
+            # fig.set_figheight(5)
+
+            # We want to show all ticks...
+            ax.set_xticks(np.arange(len(x_labels)))
+            ax.set_yticks(np.arange(len(y_labels)))
+            # ... and label them with the respective list entries
+            ax.set_xticklabels(x_labels)
+            ax.set_yticklabels(y_labels)
+
+            # Rotate the tick labels and set their alignment.
+            plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                     rotation_mode="anchor")
+
+            # Loop over data dimensions and create text annotations.
+            for i in range(len(x_labels)):
+                for j in list(range(len(y_labels) - 2)) + [len(y_labels) - 1]:
+                    text = ax.text(i, j, round(cells[j, i], 2),
+                                   ha="center", va="center", color="black" if cells[j, i] > 0.5 else 'white')
+
+            ax.set_title(('SAT' if lab else 'UNSAT') + ' ' + fl.replace('v', 'x'))
+
+            # plt.savefig('plots/{}.png'.format(r))
+            #
+            # plt.gcf().clear()
+            # plt.close()
+            # img = cv2.cvtColor(cv2.imread('plots/{}.png'.format(r)), cv2.COLOR_BGR2RGB)
+
+            bts = BytesIO()
+            plt.savefig(bts, format='png', bbox_inches='tight')
+            bts.seek(0)
+            buff = bts.read(-1)
+
+            img = cv2.cvtColor(cv2.imdecode(np.frombuffer(buff, np.uint8), cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+            bts.close()
+            plt.gcf().clear()
+            plt.close()
+            # print(r, img.shape)
+            imgs[r] = img
+        a = 0
+        return imgs
 
     def test(dsl: DataLoader, name):
         tp, tn, fp, fn = 0, 0, 0, 0
         net.eval()
-        for batch in dsl:
-            res = net(mxs=batch['matrix'].to(device),
-                      cons=batch['conops'].to(device),
-                      negs=batch['negops'].to(device), rnn_steps=rnn_steps)
-            res = res.cpu() > 0.5
-            lbl = batch['label'].to(torch.bool)
+        k = 0
+        with torch.no_grad():
+            for batch in dsl:
+                tracing_examples = 20
+                res, tracing = net(mxs=batch['matrix'].to(device),
+                                   cons=batch['conops'].to(device),
+                                   negs=batch['negops'].to(device), rnn_steps=rnn_steps, trace=tracing_examples)
+                res = res.cpu() > 0.5
+                lbl = batch['label'].to(torch.bool)
 
-            tp += torch.sum(res * lbl).data.numpy().tolist()
-            tn += torch.sum((~res) * (~lbl)).data.numpy().tolist()
-            fp += torch.sum(res * (~lbl)).data.numpy().tolist()
-            fn += torch.sum((~res) * lbl).data.numpy().tolist()
+                tp += torch.sum(res * lbl).data.numpy().tolist()
+                tn += torch.sum((~res) * (~lbl)).data.numpy().tolist()
+                fp += torch.sum(res * (~lbl)).data.numpy().tolist()
+                fn += torch.sum((~res) * lbl).data.numpy().tolist()
+                if k == 0:
+                    trace_formulas = batch['formula'][:tracing_examples]
 
+                    trace_assignments = np.asarray([t[0] for t in tracing])
+                    trace_assignments = trace_assignments.transpose([1, 0, 2])
+
+                    trace_predictions = np.asarray([t[1] for t in tracing])
+                    trace_predictions = trace_predictions.transpose([1, 0])
+                    trace_labels = batch['label'].numpy()[:tracing_examples]
+                    imgs = plot_dynamics(trace_formulas, trace_assignments, trace_predictions, trace_labels)
+
+                    for k, img in enumerate(imgs):
+                        logger.add_image('{}/{}'.format(name, k), img, global_step, dataformats='HWC')
+                    k = 1
         tp = tp / len(dsl.dataset)
         tn = tn / len(dsl.dataset)
         fp = fp / len(dsl.dataset)
@@ -130,8 +216,7 @@ def worker(e, seed, opt, epochs, batch_sz, dim,
            use_cuda, log_dir, grad_clip):
     dtime = str(datetime.now())[:19].replace(':', '-')
     log_subdir = '{},{},{},{},{},{},{},{},{},{},{}'.format(dtime, seed, opt, epochs, batch_sz, dim,
-                                                           lr, wdecay, nesterov,
-                                                           cl_type, rnn_steps)
+                                                           lr, wdecay, nesterov, cl_type, rnn_steps)
     try:
         run_experiment(train_dataset, test_dataset, validation_dataset, batch_sz, e,
                        epochs, rnn_steps, dim, cl_type,
@@ -156,25 +241,22 @@ def list_worker(device, works, seed, opt, epochs, batch_sz,
 
 
 def main():
-    data_path = r'data path'
+    data_path = '/mnt/nvme102/alex/sat/any/data'
 
-    log_dir = r'logs path'
+    log_dir = '/mnt/nvme102/alex/sat/any/logs2022/only_sat'
 
-    batch_sz = 5
-    epochs = 15
-    rnn_steps = 30
-    cl_type = 1
-    dim = 16
+    batch_sz = 250
+    epochs = 30
     seed = 42
     n_vars = 10
     n_ops = 55
 
     use_cuda = True
 
-    data_debug = True
+    data_debug = False
 
     print('loading train data')
-    train_dataset = TreeFormulasDataset(os.path.join(data_path, 'train.txt'), n_ops, n_vars, data_debug)
+    train_dataset = TreeFormulasDataset(os.path.join(data_path, 'train.txt'), n_ops, n_vars, data_debug,only_sat=True)
     print('loading test data')
     test_dataset = TreeFormulasDataset(os.path.join(data_path, 'test.txt'), n_ops, n_vars, data_debug)
     print('loading validation data')
@@ -182,9 +264,15 @@ def main():
 
     experiment_target = 'steps_dim_cl'
 
-    dim_options = [1, 2, 4, 8, 16, 32, 64]
-    cl_options = [1, 2, 3, 5, 6, 7]
-    rnn_steps_options = [0, 1, 2, 3, 4, 5, 10, 20, 30, 40, 50]
+    dim_options = [  # 1, 2, 4, 8, 16, 32,
+        16]
+    cl_options = [  # 1, 2, 3,
+        5,
+        6,
+        7
+    ]  # 5=min, 6=prod,7=luk
+    rnn_steps_options = [  # 0, 1, 2, 3, 4, 5, 10, 20, 30, 40, 50
+        10]
 
     experiments = itertools.product(dim_options, cl_options, rnn_steps_options)
 
@@ -194,9 +282,9 @@ def main():
     nesterov = False
     wdecay = 1e-4
     eps = 1e-8
-    grad_clip = 0.65
+    grad_clip = 0.2
 
-    n_gpus = 2
+    n_gpus = 1
 
     gpus = ['cuda:{}'.format(i) for i in range(n_gpus)]
 
@@ -212,13 +300,12 @@ def main():
                 continue
         works.append((i, e))
 
-    works_by_gpus = [(gpus[i], works[i::3]) for i in range(len(gpus))]
+    works_by_gpus = [(gpus[i], works[i::len(gpus)]) for i in range(len(gpus))]
+    wlist = [delayed(list_worker)(gpu, wks, seed, opt, epochs, batch_sz,
+                                  lr, wdecay, nesterov, train_dataset, test_dataset, validation_dataset,
+                                  momentum, eps, log_dir, grad_clip) for gpu, wks in works_by_gpus]
 
-    wlist=[delayed(list_worker)(gpu, wks, seed, opt, epochs, batch_sz,
-                    lr, wdecay, nesterov, train_dataset, test_dataset, validation_dataset,
-                    momentum, eps, log_dir, grad_clip) for gpu,wks in works_by_gpus]
-
-    Parallel(len(wlist),'threading')(wlist)
+    Parallel(len(wlist), 'threading')(wlist)
 
     # for gpu, wks in works_by_gpus:
     #     list_worker(gpu, wks, seed, opt, epochs, batch_sz,

@@ -1,11 +1,11 @@
-from logic import prop
+import prop
 import numpy as np
 
 
 def simple_read(fname):
     with open(fname, 'r') as f:
         ls = [x.rstrip('\n').split(' ') for x in f.readlines()]
-    ls = [(int(x[0]), prop.Form.parse_prefix(x[1])) for x in ls]
+    ls = [(int(x[0]), x[1]) for x in ls]
 
     return ls
 
@@ -139,20 +139,38 @@ def f2matr_worker(i, matrices, x, vars, max_ops):
     matrices[i] = formula2matrix(x, max_ops, vars)
 
 
+import multiprocessing as mp
+
+
 class TreeFormulasDataset(Dataset):
-    def __init__(self, fname, max_ops=70, vars=10, debug=True):
+    def __init__(self, fname, max_ops=70, vars=10, debug=False, only_sat=False):
         super().__init__()
 
-        d = simple_read(fname)
-        if debug:
-            d = d[:1000]
-        self.labels = np.asarray([x[0] for x in d])
-        matrices = [None] * len(d)
+        self.src_data = simple_read(fname)
 
-        jobs = [delayed(f2matr_worker)(i, matrices, x[1], vars, max_ops) for i, x in enumerate(d)]
-        Parallel(8, 'threading', 1)(jobs)
-        #
-        # [formula2matrix() for x in d]
+        if only_sat:
+            self.src_data = [x for x in self.src_data if x[0] == 1]
+
+        if debug:
+            self.src_data = self.src_data[:1000]
+        self.labels = np.asarray([x[0] for x in self.src_data])
+        # matrices0 = [None] * len(src_data)
+        # jobs = [delayed(f2matr_worker)(i, matrices0, x[1], vars, max_ops) for i, x in enumerate(src_data)]
+        # Parallel(8, 'threading', 1)(jobs)
+        matrices = [None] * len(self.src_data)
+        import datetime
+        a = datetime.datetime.now()
+        matrices = list(map(lambda x: formula2matrix(prop.Form.parse_prefix(x[1]), max_ops, vars), self.src_data))
+        print('formulas loaded in ', datetime.datetime.now() - a)
+        # matrices2 = [None] * len(src_data)
+        # a = datetime.datetime.now()
+        # from concurrent.futures import ThreadPoolExecutor
+        # w = 8
+        # with ThreadPoolExecutor(w) as executor:
+        #     # submit all tasks
+        #     for i, result in enumerate(executor.map(lambda x: formula2matrix(x[1], max_ops, vars), src_data)):
+        #         matrices2[i] = result
+        # print('formulas2 loaded in ', datetime.datetime.now() - a)
         self.matrices = []
         self.negops = []
         self.conops = []
@@ -171,4 +189,5 @@ class TreeFormulasDataset(Dataset):
         return {'label': self.labels[item],
                 'matrix': self.matrices[item],
                 'negops': self.negops[item],
-                'conops': self.conops[item]}
+                'conops': self.conops[item],
+                'formula': self.src_data[item][1]}
